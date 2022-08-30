@@ -18,6 +18,7 @@ class Flushbar<T> extends StatefulWidget {
   Flushbar(
       {Key? key,
       this.title,
+      this.child,
       this.titleColor,
       this.titleSize,
       this.message,
@@ -67,6 +68,8 @@ class Flushbar<T> extends StatefulWidget {
         super(key: key) {
     onStatusChanged = onStatusChanged ?? (status) {};
   }
+
+  final Widget? child;
 
   /// A callback for you to listen to the different Flushbar status
   final FlushbarStatusCallback? onStatusChanged;
@@ -230,8 +233,7 @@ class Flushbar<T> extends StatefulWidget {
       flushbar: this,
     ) as route.FlushbarRoute<T?>;
 
-    return await Navigator.of(context, rootNavigator: false)
-        .push(flushbarRoute as Route<T>);
+    return await Navigator.of(context, rootNavigator: false).push(flushbarRoute as Route<T>);
   }
 
   /// Dismisses the flushbar causing is to return a future containing [result].
@@ -289,8 +291,7 @@ class Flushbar<T> extends StatefulWidget {
   State createState() => _FlushbarState<T?>();
 }
 
-class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
-    with TickerProviderStateMixin {
+class _FlushbarState<K extends Object?> extends State<Flushbar<K>> with TickerProviderStateMixin {
   final Duration _pulseAnimationDuration = const Duration(seconds: 1);
   final Widget _emptyWidget = const SizedBox();
   final double _initialOpacity = 1.0;
@@ -315,10 +316,11 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
     _backgroundBoxKey = GlobalKey();
     _boxHeightCompleter = Completer<Size>();
 
+    if (widget.child != null) return;
+
     assert(
         widget.userInputForm != null ||
-            ((widget.message != null && widget.message!.isNotEmpty) ||
-                widget.messageText != null),
+            ((widget.message != null && widget.message!.isNotEmpty) || widget.messageText != null),
         'A message is mandatory if you are not using userInputForm. Set either a message or messageText');
 
     _isTitlePresent = (widget.title != null || widget.titleText != null);
@@ -341,8 +343,11 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
     _fadeController?.dispose();
     widget.progressIndicatorController?.dispose();
 
-    _focusAttachment.detach();
-    _focusNode!.dispose();
+    if (widget.child == null) {
+      _focusAttachment.detach();
+      _focusNode?.dispose();
+    }
+
     super.dispose();
   }
 
@@ -360,16 +365,13 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
   }
 
   void _configureProgressIndicatorAnimation() {
-    if (widget.showProgressIndicator &&
-        widget.progressIndicatorController != null) {
-      _progressAnimation = CurvedAnimation(
-          curve: Curves.linear, parent: widget.progressIndicatorController!);
+    if (widget.showProgressIndicator && widget.progressIndicatorController != null) {
+      _progressAnimation = CurvedAnimation(curve: Curves.linear, parent: widget.progressIndicatorController!);
     }
   }
 
   void _configurePulseAnimation() {
-    _fadeController =
-        AnimationController(vsync: this, duration: _pulseAnimationDuration);
+    _fadeController = AnimationController(vsync: this, duration: _pulseAnimationDuration);
     _fadeAnimation = Tween(begin: _initialOpacity, end: _finalOpacity).animate(
       CurvedAnimation(
         parent: _fadeController!,
@@ -392,26 +394,23 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
   //TODO : review EdgeInsets
   @override
   Widget build(BuildContext context) {
-    return Align(
-      heightFactor: 1.0,
-      child: Material(
-        color: widget.flushbarStyle == FlushbarStyle.FLOATING
-            ? Colors.transparent
-            : widget.backgroundColor,
-        child: SafeArea(
-          minimum: widget.flushbarPosition == FlushbarPosition.BOTTOM
-          ? EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + widget.positionOffset)
-          : EdgeInsets.only(
-              top: MediaQuery.of(context).viewInsets.top + widget.positionOffset),
-          bottom: widget.flushbarPosition == FlushbarPosition.BOTTOM,
-          top: widget.flushbarPosition == FlushbarPosition.TOP,
-          left: false,
-          right: false,
-          child: _getFlushbar(),
-        ),
-      ),
-    );
+    return widget.child ??
+        Align(
+          heightFactor: 1.0,
+          child: Material(
+            color: widget.flushbarStyle == FlushbarStyle.FLOATING ? Colors.transparent : widget.backgroundColor,
+            child: SafeArea(
+              minimum: widget.flushbarPosition == FlushbarPosition.BOTTOM
+                  ? EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + widget.positionOffset)
+                  : EdgeInsets.only(top: MediaQuery.of(context).viewInsets.top + widget.positionOffset),
+              bottom: widget.flushbarPosition == FlushbarPosition.BOTTOM,
+              top: widget.flushbarPosition == FlushbarPosition.TOP,
+              left: false,
+              right: false,
+              child: _getFlushbar(),
+            ),
+          ),
+        );
   }
 
   Widget _getFlushbar() {
@@ -436,8 +435,7 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
               return ClipRRect(
                 borderRadius: widget.borderRadius,
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                      sigmaX: widget.barBlur, sigmaY: widget.barBlur),
+                  filter: ImageFilter.blur(sigmaX: widget.barBlur, sigmaY: widget.barBlur),
                   child: Container(
                     height: snapshot.data!.height,
                     width: snapshot.data!.width,
@@ -460,21 +458,16 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
   Widget _generateInputFlushbar() {
     return Container(
       key: _backgroundBoxKey,
-      constraints: widget.maxWidth != null
-          ? BoxConstraints(maxWidth: widget.maxWidth!)
-          : null,
+      constraints: widget.maxWidth != null ? BoxConstraints(maxWidth: widget.maxWidth!) : null,
       decoration: BoxDecoration(
         color: widget.backgroundColor,
         gradient: widget.backgroundGradient,
         boxShadow: widget.boxShadows,
         borderRadius: widget.borderRadius,
-        border: widget.borderColor != null
-            ? Border.all(color: widget.borderColor!, width: widget.borderWidth)
-            : null,
+        border: widget.borderColor != null ? Border.all(color: widget.borderColor!, width: widget.borderWidth) : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.only(
-            left: 8.0, right: 8.0, bottom: 8.0, top: 16.0),
+        padding: const EdgeInsets.only(left: 8.0, right: 8.0, bottom: 8.0, top: 16.0),
         child: FocusScope(
           node: _focusNode,
           autofocus: true,
@@ -487,17 +480,13 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
   Widget _generateFlushbar() {
     return Container(
       key: _backgroundBoxKey,
-      constraints: widget.maxWidth != null
-          ? BoxConstraints(maxWidth: widget.maxWidth!)
-          : null,
+      constraints: widget.maxWidth != null ? BoxConstraints(maxWidth: widget.maxWidth!) : null,
       decoration: BoxDecoration(
         color: widget.backgroundColor,
         gradient: widget.backgroundGradient,
         boxShadow: widget.boxShadows,
         borderRadius: widget.borderRadius,
-        border: widget.borderColor != null
-            ? Border.all(color: widget.borderColor!, width: widget.borderWidth)
-            : null,
+        border: widget.borderColor != null ? Border.all(color: widget.borderColor!, width: widget.borderWidth) : null,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -711,11 +700,9 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
                     ? null
                     : widget.textDirection == TextDirection.ltr
                         ? BorderRadius.only(
-                            topLeft: widget.borderRadius!.topLeft,
-                            bottomLeft: widget.borderRadius!.bottomLeft)
+                            topLeft: widget.borderRadius!.topLeft, bottomLeft: widget.borderRadius!.bottomLeft)
                         : BorderRadius.only(
-                            topRight: widget.borderRadius!.topRight,
-                            bottomRight: widget.borderRadius!.bottomRight),
+                            topRight: widget.borderRadius!.topRight, bottomRight: widget.borderRadius!.bottomRight),
                 color: widget.leftBarIndicatorColor,
               ),
             );
@@ -756,9 +743,7 @@ class _FlushbarState<K extends Object?> extends State<Flushbar<K>>
   Text _getDefaultNotificationText() {
     return Text(
       widget.message ?? '',
-      style: TextStyle(
-          fontSize: widget.messageSize ?? 14.0,
-          color: widget.messageColor ?? Colors.white),
+      style: TextStyle(fontSize: widget.messageSize ?? 14.0, color: widget.messageColor ?? Colors.white),
     );
   }
 
